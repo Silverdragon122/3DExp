@@ -238,6 +238,7 @@
             0.1, 
             1000
         );
+
 // Global error handler
 
 // Function to display the error modal
@@ -517,6 +518,41 @@ function showErrorModal() {
                 };
             }
         }
+        function onTouchStart(event) {
+    isDragging = true;
+    previousMousePosition = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+    };
+}
+
+function onTouchEnd() {
+    isDragging = false;
+}
+
+function onTouchMove(event) {
+    if (isDragging) {
+        const deltaMove = {
+            x: event.touches[0].clientX - previousMousePosition.x,
+            y: event.touches[0].clientY - previousMousePosition.y
+        };
+
+        const deltaRotationQuaternion = new THREE.Quaternion()
+            .setFromEuler(new THREE.Euler(
+                toRadians(deltaMove.y * 1),
+                toRadians(deltaMove.x * 1),
+                0,
+                'XYZ'
+            ));
+
+        shape.quaternion.multiplyQuaternions(deltaRotationQuaternion, shape.quaternion);
+
+        previousMousePosition = {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY
+        };
+    }
+}
 
         function toRadians(angle) {
             return angle * (Math.PI / 180);
