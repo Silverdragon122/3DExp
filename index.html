@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Shape Viewer</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+        }
+        #fpsCounter, #controls {
+            position: absolute;
+            top: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            font-size: 14px;
+        }
+        #fpsCounter { 
+            left: 10px; 
+        }
+        #controls { 
+            right: 10px;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 300px;
+        }
+        .control-section {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .control-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #fff;
+        }
+        label {
+            display: inline-block;
+            width: 100px;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 150px;
+            vertical-align: middle;
+        }
+        input[type="number"] {
+            width: 60px;
+        }
+        select {
+            width: 150px;
+            margin-bottom: 5px;
+        }
+        /* Error Modal styles */
+#errorModal .modal-content {
+    background-color: #e74c3c; /* Red background */
+    color: #ecf0f1;
+}
+        /* Modal styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* Ensure the modal is on top */
+}
+
+.modal-content {
+    background-color: #2c3e50;
+    padding: 20px;
+    border-radius: 5px;
+    color: #ecf0f1;
+    text-align: center;
+    max-width: 500px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.modal-content h2 {
+    margin-top: 0;
+}
+
+.modal-content button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #27ae60;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.modal-content button:hover {
+    background-color: #2ecc71;
+}
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <!-- Start Modal -->
+<div id="startModal" class="modal">
+    <div class="modal-content">
+        <h2>Hey! Welcome to 3D experiments!</h2>
+        <p>Before you begin, ensure your hardware is adequate for basic rendering (not a potato).</p>
+        <p>You can use the sliders and toggles on the right to configure the shape that you see.</p>
+        <p>The scene in the background is used for reflections, textures and more. It is a ThreeJS example which can be found here: <a href="https://threejs.org/examples/textures/cube/Bridge2/">https://threejs.org/examples/textures/cube/Bridge2/</a> </p>
+        <p>(This link can only be used in projects, it is not an accessible website)</p>
+        <p>Have fun!</p>
+        <button id="closeModal">I got it!</button>
+    </div>
+</div>
+    <div id="fpsCounter">FPS: 0</div>
+    <div id="controls">
+        <!-- Shape Controls -->
+        <div class="control-section">
+            <h3>Shape</h3>
+            <label for="shape">Type:</label>
+            <select id="shape">
+                <option value="sphere">Sphere</option>
+                <option value="pyramid">Pyramid</option>
+                <option value="cube">Cube</option>
+                <option value="torus">Torus</option>
+                <option value="icosahedron">Icosahedron</option>
+            </select>
+            <br>
+            <br>
+            <label for="resolution">Resolution:</label>
+            <input type="range" id="resolutionSlider" min="3" max="64" value="32">
+            <input type="number" id="resolutionInput" min="3" max="64" value="32">
+            <br>
+            <label for="size">Size:</label>
+            <input type="range" id="size" min="0.1" max="3" step="0.1" value="1">
+            <br>
+            <label for="opacity">Opacity:</label>
+            <input type="range" id="opacity" min="0" max="1" step="0.1" value="1">
+        </div>
+
+        <!-- Material Controls -->
+        <div class="control-section">
+            <h3>Material</h3>
+            <label for="material">Type:</label>
+            <select id="material">
+                <option value="phong">Phong</option>
+                <option value="standard">Standard</option>
+            </select>
+            <br>
+            <label for="colorPicker">Color:</label>
+            <input type="color" id="colorPicker" value="#00ff00">
+            <br>
+            <label for="metalness">Metalness:</label>
+            <input type="range" id="metalness" min="0" max="1" step="0.1" value="0.5">
+            <br>
+            <label for="roughness">Roughness:</label>
+            <input type="range" id="roughness" min="0" max="1" step="0.1" value="0.5">
+        </div>
+
+        <!-- Light Controls -->
+        <div class="control-section">
+            <h3>Lighting</h3>
+            <label for="lightColor">Light Color:</label>
+            <input type="color" id="lightColor" value="#ffffff">
+            <br>
+            <label for="lightIntensity">Intensity:</label>
+            <input type="range" id="lightIntensity" min="0" max="2" step="0.1" value="1">
+            <br>
+            <label for="ambientIntensity">Ambient:</label>
+            <input type="range" id="ambientIntensity" min="0" max="1" step="0.1" value="0.4">
+        </div>
+
+        <!-- Animation Controls -->
+        <div class="control-section">
+            <h3>Animation</h3>
+            <label for="autoRotate">Auto Rotate:</label>
+            <input type="checkbox" id="autoRotate">
+            <br>
+            <label for="rotationSpeed">Speed:</label>
+            <input type="range" id="rotationSpeed" min="0" max="5" step="0.1" value="1">
+            <br>
+            <label for="pulseEffect">Pulse:</label>
+            <input type="checkbox" id="pulseEffect">
+        </div>
+
+        <!-- Camera Controls -->
+        <div class="control-section">
+            <h3>Camera</h3>
+            <label for="fov">FOV:</label>
+            <input type="range" id="fov" min="30" max="120" step="1" value="75">
+            <br>
+            <label for="cameraDistance">Distance:</label>
+            <input type="range" id="cameraDistance" min="2" max="10" step="0.1" value="5">
+        </div>
+
+        <!-- Render Settings -->
+<div class="control-section">
+    <h3>Render</h3>
+    <label for="antialias">Anti-Aliasing:</label>
+    <input type="checkbox" id="antialias" checked>
+    <br>
+    <button id="screenshotButton">Take Screenshot</button>
+</div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const fpsCounter = document.getElementById('fpsCounter');
+        const controls = document.querySelectorAll('#controls input, #controls select');
+        let lastFrameTime = 0;
+        let frameCount = 0;
+        let lastFpsUpdateTime = 0;
+        let animationId;
+        let errorDisplayed = false;
+        // Scene setup
+        window.onerror = function(message, source, lineno, colno, error) {
+    // Stop the animation loop immediately
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+
+    // Display error modal only if not already displayed
+    if (!errorDisplayed) {
+        errorDisplayed = true;
+        showErrorModal();
+    }
+};
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(
+            parseFloat(document.getElementById('fov').value), 
+            window.innerWidth / window.innerHeight, 
+            0.1, 
+            1000
+        );
+// Global error handler
+
+// Function to display the error modal
+function showErrorModal() {
+    // Create modal elements
+    const errorModal = document.createElement('div');
+    errorModal.id = 'errorModal';
+    errorModal.className = 'modal';
+    errorModal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    
+    const errorContent = document.createElement('div');
+    errorContent.className = 'modal-content';
+    errorContent.style.backgroundColor = '#e74c3c'; // Red background
+    errorContent.style.color = '#ecf0f1';
+
+    const errorMessage = document.createElement('h2');
+    errorMessage.textContent = 'Woah there!';
+    const errorDescription = document.createElement('p');
+    errorDescription.textContent = 'We have hit a fatal error. The website can no longer function until a reload. The button below may take time to function.';
+    const reloadButton = document.createElement('button');
+    reloadButton.textContent = 'Reload';
+    reloadButton.onclick = function() {
+        location.reload();
+    };
+
+    // Append elements
+    errorContent.appendChild(errorMessage);
+    errorContent.appendChild(errorDescription);
+    errorContent.appendChild(reloadButton);
+    errorModal.appendChild(errorContent);
+    document.body.appendChild(errorModal);
+}
+
+
+        // Renderer with shadow map enabled
+        let renderer = new THREE.WebGLRenderer({ 
+            antialias: document.getElementById('antialias').checked
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // Environment texture for reflections
+        const envTexture = new THREE.CubeTextureLoader()
+            .setPath('https://threejs.org/examples/textures/cube/Bridge2/')
+            .load([
+                'posx.jpg', 'negx.jpg',
+                'posy.jpg', 'negy.jpg',
+                'posz.jpg', 'negz.jpg'
+            ]);
+        scene.background = envTexture;
+
+        // Create initial shape
+        let geometry = new THREE.SphereGeometry(1, 32, 32);
+        let material = new THREE.MeshStandardMaterial({ color: 0x00ff00, envMap: envTexture });
+        let shape = new THREE.Mesh(geometry, material);
+        shape.position.y = 1;
+        shape.castShadow = true;
+        shape.receiveShadow = true;
+        scene.add(shape);
+
+        // Create ground plane
+        const planeGeometry = new THREE.PlaneGeometry(20, 20);
+        const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.5 });
+        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.rotation.x = -Math.PI / 2;
+        plane.receiveShadow = true;
+        scene.add(plane);
+
+        // Add lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, parseFloat(document.getElementById('ambientIntensity').value));
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, parseFloat(document.getElementById('lightIntensity').value));
+        directionalLight.position.set(5, 10, 7.5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        scene.add(directionalLight);
+
+        // Set initial camera position
+        camera.position.z = parseFloat(document.getElementById('cameraDistance').value);
+
+        // Animation variables
+        let autoRotate = document.getElementById('autoRotate').checked;
+        let rotationSpeed = parseFloat(document.getElementById('rotationSpeed').value);
+        let pulseEffect = document.getElementById('pulseEffect').checked;
+        let pulseValue = 0;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        function animate(now) {
+    now *= 0.001;
+    const deltaTime = now - lastFrameTime;
+    lastFrameTime = now;
+
+    // Update FPS counter
+    frameCount++;
+    if (now - lastFpsUpdateTime >= 1.0) {
+        fpsCounter.textContent = `FPS: ${frameCount}`;
+        frameCount = 0;
+        lastFpsUpdateTime = now;
+    }
+
+    // Handle auto-rotation
+    if (autoRotate) {
+        shape.rotation.y += rotationSpeed * 0.01;
+    }
+
+    // Handle pulse effect
+    if (pulseEffect) {
+        pulseValue += deltaTime;
+        const scale = 1 + Math.sin(pulseValue * 2) * 0.1;
+        shape.scale.set(scale, scale, scale);
+    }
+
+    renderer.render(scene, camera);
+
+    // Request the next frame and store the ID
+    animationId = requestAnimationFrame(animate);
+}
+
+        // Event listeners for controls
+        controls.forEach(control => {
+            control.addEventListener('change', updateSettings);
+            control.addEventListener('input', updateSettings);
+        });
+
+        function updateSettings() {
+            // Update auto-rotation
+            autoRotate = document.getElementById('autoRotate').checked;
+            rotationSpeed = parseFloat(document.getElementById('rotationSpeed').value);
+
+            // Update pulse effect
+            pulseEffect = document.getElementById('pulseEffect').checked;
+            if (!pulseEffect) {
+                shape.scale.set(1, 1, 1);
+            }
+
+            // Update camera settings
+            camera.fov = parseFloat(document.getElementById('fov').value);
+            camera.position.z = parseFloat(document.getElementById('cameraDistance').value);
+            camera.updateProjectionMatrix();
+
+            // Update renderer
+            const newAntialias = document.getElementById('antialias').checked;
+            if (renderer.antialias !== newAntialias) {
+                renderer.dispose();
+                document.body.removeChild(renderer.domElement);
+                renderer = new THREE.WebGLRenderer({ antialias: newAntialias });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.body.appendChild(renderer.domElement);
+                attachEventListeners();
+            }
+
+            // Update lighting
+            ambientLight.intensity = parseFloat(document.getElementById('ambientIntensity').value);
+            directionalLight.intensity = parseFloat(document.getElementById('lightIntensity').value);
+            directionalLight.color.set(document.getElementById('lightColor').value);
+
+            // Update shape
+            updateShape();
+        }
+        document.getElementById('closeModal').addEventListener('click', function() {
+    document.getElementById('startModal').style.display = 'none';
+});
+
+        // Shape update function
+        function updateShape() {
+            const shapeType = document.getElementById('shape').value;
+            const resolution = parseInt(document.getElementById('resolutionInput').value);
+            const size = parseFloat(document.getElementById('size').value);
+            const materialType = document.getElementById('material').value;
+            const color = new THREE.Color(document.getElementById('colorPicker').value);
+
+            // Save current rotation and scale
+            const currentRotation = shape.rotation.clone();
+            const currentScale = shape.scale.clone();
+
+            // Remove old shape from scene
+            scene.remove(shape);
+
+            // Dispose of old geometry and material to free resources
+            if (geometry) geometry.dispose();
+            if (material) material.dispose();
+
+            // Update geometry based on selected shape
+            switch (shapeType) {
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(1, resolution, resolution);
+                    break;
+                case 'pyramid':
+                    geometry = new THREE.ConeGeometry(1, 2, resolution);
+                    break;
+                case 'cube':
+                    geometry = new THREE.BoxGeometry(1, 1, 1, resolution, resolution, resolution);
+                    break;
+                case 'torus':
+                    geometry = new THREE.TorusGeometry(1, 0.4, resolution, resolution);
+                    break;
+                case 'icosahedron':
+                    geometry = new THREE.IcosahedronGeometry(1, 0);
+                    break;
+            }
+
+            // Update material based on selected type
+            switch (materialType) {
+                case 'phong':
+                    material = new THREE.MeshPhongMaterial({ color, envMap: envTexture });
+                    break;
+                case 'standard':
+                    material = new THREE.MeshStandardMaterial({ color, metalness: parseFloat(document.getElementById('metalness').value), roughness: parseFloat(document.getElementById('roughness').value), envMap: envTexture });
+                    break;
+            }
+
+            // Update material properties
+            material.opacity = parseFloat(document.getElementById('opacity').value);
+            material.transparent = material.opacity < 1;
+
+            // Create new shape and apply previous rotation and scale
+            shape = new THREE.Mesh(geometry, material);
+            shape.position.y = 1;
+            shape.rotation.copy(currentRotation);
+            shape.scale.copy(currentScale);
+            shape.scale.multiplyScalar(size);
+
+            // Enable shadows
+            shape.castShadow = true;
+            shape.receiveShadow = true;
+
+            // Add new shape to scene
+            scene.add(shape);
+        }
+
+        // Mouse event handlers
+        function attachEventListeners() {
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+        }
+
+        function onMouseDown(event) {
+            isDragging = true;
+            previousMousePosition = {
+                x: event.clientX,
+                y: event.clientY
+            };
+        }
+
+        function onMouseUp() {
+            isDragging = false;
+        }
+
+        function onMouseMove(event) {
+            if (isDragging) {
+                const deltaMove = {
+                    x: event.clientX - previousMousePosition.x,
+                    y: event.clientY - previousMousePosition.y
+                };
+
+                const deltaRotationQuaternion = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(
+                        toRadians(deltaMove.y * 1),
+                        toRadians(deltaMove.x * 1),
+                        0,
+                        'XYZ'
+                    ));
+
+                shape.quaternion.multiplyQuaternions(deltaRotationQuaternion, shape.quaternion);
+
+                previousMousePosition = {
+                    x: event.clientX,
+                    y: event.clientY
+                };
+            }
+        }
+
+        function toRadians(angle) {
+            return angle * (Math.PI / 180);
+        }
+
+        // Initialize
+        attachEventListeners();
+        updateSettings();
+        requestAnimationFrame(animate);
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Synchronize resolution slider and input
+        const resolutionSlider = document.getElementById('resolutionSlider');
+        const resolutionInput = document.getElementById('resolutionInput');
+        resolutionSlider.addEventListener('input', () => {
+            resolutionInput.value = resolutionSlider.value;
+        });
+        resolutionInput.addEventListener('input', () => {
+            resolutionSlider.value = resolutionInput.value;
+        });
+        // Get the screenshot button element
+const screenshotButton = document.getElementById('screenshotButton');
+
+// Event listener for the screenshot button
+screenshotButton.addEventListener('click', () => {
+    // Render the current frame
+    renderer.render(scene, camera);
+
+    // Convert the canvas content to a data URL
+    const dataURL = renderer.domElement.toDataURL('image/png');
+
+    // Create a temporary link element
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = 'screenshot.png';
+
+    // Programmatically click the link to trigger the download
+    link.click();
+});
+    </script>
+</body>
+</html>
